@@ -134,6 +134,11 @@ function SCCSUpdateVersion()
        let b:sccs_version = "Checked out(Locked)"
    elseif(strpart(b:version, 0, 1) == "")
        let b:sccs_version = " "
+   elseif(match(b:version, "java") != -1)
+       let s:cmdName="sccs what " . s:filename . " | cut -f2 -s | tr -s | cut -f3 -d \" \" | cut -f1 -d \"\,\""
+
+       let b:version = system(s:cmdName)
+       let b:sccs_version = "(" . strpart(b:version, 0, strlen(b:version)-1) . ")"
    else
        let b:sccs_version = "(" . strpart(b:version, 0, strlen(b:version)-1) . ")"
    endif
@@ -141,8 +146,9 @@ function SCCSUpdateVersion()
 endfunction
 
 " Misc settings
+set laststatus=2    "Always have a status line to show SCCS version
 "set rulerformat=%60(SCCS-%{SCCSGetVersion()}%)%=%l,%c%V\ %3P%*
-set   statusline=%1*[%02n]%*\ %2*%f%*\ %(\[%M%R%H]%)%=SCCS-%{SCCSGetVersion()}\ %4l,%2c%2V\ %P%*
+set   statusline=%1*[%02n]%*\ %2*%f%*\ %(\[%M%R%H]%)%=SCCS-%{SCCSGetVersion()}\ %4l,%02c%2V\ %P%*
 
 " Update the SCCS version of file when we open it
 au! BufRead * call SCCSUpdateVersion()
