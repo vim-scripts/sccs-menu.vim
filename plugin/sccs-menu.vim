@@ -41,7 +41,7 @@ if(v:version >= 600)
     map <F5> :let comm = input("Enter comment:")<Bar>call CheckIn(expand("%"), comm)<BAR>:e!<CR>
     " Map F6 to get sccs log
     "map <F6> :!sccs prt %<CR>
-    map <F6> :call SCCSShowLog("sccs-log", "sccs prt")<CR>:e!<CR>
+    map <F6> :call SCCSShowLog("sccs-log", "sccs prt")<CR>
     " Map F7 to get diff of previous sccs version of open file 
     map <F7> :call ShowSCCSDiff(expand("%"))<CR>
     " Map F10 to Revert back current file
@@ -110,7 +110,7 @@ function! SCCSShowLog(bufferName, cmdName)
   call ReadCommandBuffer(a:bufferName, a:cmdName)
 endfunction
 
-let b:sccs_version = "SCCS-"
+let b:sccs_version = ""
 
 function SCCSGetVersion()
    if exists("b:sccs_version")
@@ -124,6 +124,7 @@ endfunction
 function SCCSUpdateVersion()
    let s:filename = expand("%")
    if(s:filename  == "")
+       let b:sccs_version = ""
        return ""
    endif
 
