@@ -26,7 +26,8 @@ if has("gui")
     amenu  S&CCS.-SEP2-			:
     amenu  S&CCS.&Add\ file\ in\ SCCS<Tab>sccs\ create	:!sccs create %<CR>
     amenu  S&CCS.-SEP3-			:
-    amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:!sccs prt %<CR>
+    "amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:!sccs prt %<CR>
+    amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:call ShowLog("sccs-log", "sccs prt")<CR>
     amenu  S&CCS.Diff\ with\ prev\ version<Tab>sccs\ diffs\ (F7)	:call ShowSCCSDiff(expand("%"))<CR>
 endif
 
@@ -39,17 +40,13 @@ if(v:version >= 600)
     " Map F5 to check-in
     map <F5> :let comm = input("Enter comment:")<Bar>call CheckIn(expand("%"), comm)<CR>
     " Map F6 to get sccs log
-    map <F6> :!sccs prt %<CR>
+    "map <F6> :!sccs prt %<CR>
+    map <F6> :call ShowLog("sccs-log", "sccs prt")<CR>
     " Map F7 to get diff of previous sccs version of open file 
     map <F7> :call ShowSCCSDiff(expand("%"))<CR>
     " Map F10 to Revert back current file
     map <F10> :!sccs unget %<CR>:!sccs get %<CR>
 endif
-
-"function CheckIn(filename, comment)
-"let quote = "\""
-"execute ":!sccs delget -y" . quote a:comment . quote a:filename
-"endfunction
 
 function GetRevision(filename, revision)
 execute ":!sccs get -r" . a:revision a:filename
@@ -64,4 +61,47 @@ function ShowSCCSDiff(filename)
 execute ":!rm tempfile.java"
 execute ":!sccs get -p " . a:filename . " > tempfile.java"
 execute ":vert diffs tempfile.java"
+endfunction
+
+" -----------------------------------------------------------------------------
+" ReadCommandBuffer
+" - bufferName is the name which the new buffer with the command results
+"   should have
+" - cmdName is the command to execute
+" -----------------------------------------------------------------------------
+function! ReadCommandBuffer(bufferName, cmdName)
+  " modify the shortmess option:
+  " A  don't give the "ATTENTION" message when an existing swap file is
+  "    found.
+  set shortmess+=A
+
+  " get the name of the current buffer
+  let currentBuffer = bufname("%")
+
+  " if a buffer with the name rlog exists, delete it
+  if bufexists(a:bufferName)
+    execute 'bd! ' a:bufferName
+  endif
+
+  " create a new buffer
+  execute 'new ' a:bufferName
+
+  " execute the rlog command
+  execute 'r!' a:cmdName ' ' currentBuffer
+
+  set nomodified
+
+  " go to the beginning of the buffer
+  execute "normal 1G"
+
+  " restore the shortmess option
+  set shortmess-=A
+endfunction
+
+" -----------------------------------------------------------------------------
+" ShowLog
+" show the log results of the current file with SCCS
+" -----------------------------------------------------------------------------
+function! ShowLog(bufferName, cmdName)
+  call ReadCommandBuffer(a:bufferName, a:cmdName)
 endfunction
