@@ -1,0 +1,3 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=43
+
+Script to access most commonly used SCCS functions thr' vim. Allows to get the latest version, any required version of a file. You can check in/out the file, add the file in sccs, unedit the file, revert back the changes made. You can view diff of any 2 versions of the file, see the change log etc.
