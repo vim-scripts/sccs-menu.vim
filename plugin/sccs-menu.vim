@@ -197,7 +197,7 @@ function SCCSUpdateVersion()
    endif
 
    " Now get the actual version
-   let s:cmdName="sccs what " . s:filename . " | tr -d \"\n\" | cut -f2 -d\":\" | tr -d \"\t\" | cut -f3 -d\" \" | cut -f1 -d\",\""
+   let s:cmdName="sccs what " . s:filename . " | tr -d \"\n\" | cut -f2 -d\":\" | tr -d \"\t\" | cut -f1 -d\",\" | cut -f2,3 -d\" \" | cut -f2 -d\" \""
    let b:version = system(s:cmdName)
    let b:sccs_version = strpart(b:version, 0, strlen(b:version)-1)
    return b:sccs_version
