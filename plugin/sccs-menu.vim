@@ -284,7 +284,7 @@ function SCCSUpdateVersion()
    endif
 
    " Now check if it is locked by the user
-   let s:grpCmd = "sccs check -U | grep " . s:filename
+   let s:grpCmd = "sccs check -U | grep " . s:filename . ":"
    let s:grpRes = system(s:grpCmd)
    if(!v:shell_error)
        let b:sccs_version = "Checked out(Locked)"
