@@ -2,10 +2,11 @@
 " =============================================================================
 "          Name Of File: sccs-menu.vim
 "           Description: Creates a SCCS menu.
-"                Author: Pradeep Unde
+"                Author: Pradeep Unde (pradeep_unde@yahoo.com)
+"               Version: 1.8
 "                   URL: 
 "                  Date: August 8, 2001
-"     Last Modification: "Wed, 18 Aug 2001"
+"     Last Modification: "Thu, 23 Aug 2001"
 "             Copyright: None.
 "                 Usage: This menu displays useful Source Code Control System
 "                        (SCCS) functions.
@@ -64,19 +65,46 @@ endfunction
 " Shows diff of opened file against the previous version. Uses vertical diff
 " facility in Vim 6.0
 function ShowSCCSDiff(filename)
-    silent execute ":!rm tempfile.java"
+    " Get the filetype of the file to be diffed. Used later on to set the
+    " filtype of the diff buffers
+    let s:fileType = &ft
     silent execute ":!sccs get -p " . a:filename . " > tempfile.java"
-    silent execute ":vert diffs tempfile.java"
+    " Check if 1st buffer for diff exists
+    if bufexists("diff")
+        execute "bd! diff"
+    endif
+    " create a new buffer
+    execute "vnew diff"
+    " Get the required version of the file from SCCS and put it in diff
+    let s:cmdName = "sccs get -p -s " . a:filename
+    silent execute "0r!" . s:cmdName
+    execute "set filetype=" . s:fileType
+    set nomodified
+    execute "diffthis"
+    " Do some cursor movement for diff to work!
+    execute "wincmd l"
+    execute "diffthis"
+    execute "wincmd h"
+    " Go to the beginning of the buffer
+    execute "normal 1G"
 endfunction
 
 " Shows diff of 2 different versions opened file. Uses vertical diff
 " facility in Vim 6.0
 function ShowSCCSVersionDiff(filename, rev1, rev2)
+    " Get the filetype of the file to be diffed. Used later on to set the
+    " filtype of the diff buffers
+    let s:fileType = &ft
+    execute "set nodiff"
+
+    " Check if we are diffing against the same versions
     if(a:rev1 == a:rev2)
         execute ":redraw"
         echo "Nothing to show diff"
         return
     endif
+
+    " Get the vesion of the opened file
     let s:curr_ver = SCCSUpdateVersion()
 
     " Check we need to split the screen horizontally
@@ -87,29 +115,62 @@ function ShowSCCSVersionDiff(filename, rev1, rev2)
         let s:rev = a:rev1
     endif
     if(s:rev != "")
-        silent execute ":!sccs get -p " . a:filename . " -r " . s:rev . " > tempfile.java"
-        silent execute ":vert diffs tempfile.java"
+        " Check if 1st buffer for diff exists
+        if bufexists("diff1")
+            execute "bd! diff1"
+        endif
+        " create a new buffer
+        execute "vnew diff1"
+        " Get the required version of the file from SCCS and put it in diff
+        let s:cmdName = "sccs get -p -s " . a:filename . " -r " . s:rev
+        silent execute "0r!" . s:cmdName
+        execute "set filetype=" . s:fileType
+        set nomodified
+        execute "diffthis"
+        " Do some cursor movement for diff to work!
+        execute "wincmd l"
+        execute "diffthis"
+        execute "wincmd h"
+        " Go to the beginning of the buffer
+        execute "normal 1G"
         return
     endif
     
-    
-    silent execute ":!sccs get -p " . a:filename . " -r " . a:rev1 . " > tempfile1.java"
-    silent execute ":!sccs get -p " . a:filename . " -r " . a:rev2 . " > tempfile2.java"
-    
-    if bufexists("diff")
-        execute "bd! diff"
+    " Check if 1st buffer for diff exists
+    if bufexists("diff1")
+        execute "bd! diff1"
     endif
 
     " create a new buffer
-    execute "new diff"
+    execute "new diff1"
 
-    " execute the rlog command
-    execute ":0read tempfile1.java"
+    " Get the required version of the file from SCCS and put it in diff
+    let s:cmdName = "sccs get -p -s " . a:filename . " -r " . a:rev1
+    silent execute "0r!" . s:cmdName
+    execute "set filetype=" . s:fileType
     set nomodified
+    execute "diffthis"
+
+    " Check if 2nd buffer for diff exists
+    if bufexists("diff2")
+        execute "bd! diff2"
+    endif
+    execute "vnew diff2"
     
-    silent execute ":vert diffs tempfile2.java"
-
-
+    " Get the other required version of the file from SCCS
+    let s:cmdName = "sccs get -p -s " . a:filename . " -r " . a:rev2
+    silent execute "0r!" . s:cmdName
+    execute "set filetype=" . s:fileType
+    set nomodified
+    execute "diffthis"
+    
+    " Do some cursor movement for diff to work!
+    execute "wincmd l"
+    execute "diffthis"
+    execute "wincmd h"
+    
+    " Go to the beginning of the buffer
+    execute "normal 1G"
 endfunction
 
 " -----------------------------------------------------------------------------
@@ -172,18 +233,18 @@ function SCCSUpdateVersion()
        let b:sccs_version = ""
        return ""
    endif
-   
+
    " First check whether the file exists in SCCS
    let s:cmdName="sccs prt " . s:filename 
 
-   let b:version = system(s:cmdName)
-   if(strpart(b:version, 0, 1) == "")
+   let s:version = system(s:cmdName)
+   if(strpart(s:version, 0, 1) == "")
        let b:sccs_version = " "
        return b:sccs_version
-   elseif(match(b:version, "nonexistent") != -1)
+   elseif(match(s:version, "nonexistent") != -1)
        let b:sccs_version = "Not in SCCS"
        return b:sccs_version
-   elseif(match(b:version, "%") != -1)
+   elseif(match(s:version, "%") != -1)
        let b:sccs_version = "Not in SCCS"
        return b:sccs_version
    endif
@@ -197,9 +258,9 @@ function SCCSUpdateVersion()
    endif
 
    " Now get the actual version
-   let s:cmdName="sccs what " . s:filename . " | tr -d \"\n\" | cut -f2 -d\":\" | tr -d \"\t\" | cut -f1 -d\",\" | cut -f2,3 -d\" \" | cut -f2 -d\" \""
-   let b:version = system(s:cmdName)
-   let b:sccs_version = strpart(b:version, 0, strlen(b:version)-1)
+   let s:cmdName="sccs prt -y " . s:filename . " | awk '{getline;print $3;}' "
+   let s:version = system(s:cmdName)
+   let b:sccs_version = strpart(s:version, 0, strlen(s:version)-1)
    return b:sccs_version
 endfunction
 
