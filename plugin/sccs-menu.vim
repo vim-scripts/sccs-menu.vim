@@ -127,18 +127,20 @@ function SCCSUpdateVersion()
        return ""
    endif
 
-   let s:cmdName="sccs what " . s:filename . " | cut -f2 -s | tr -s | cut -f2 -d \" \" | cut -f1 -d \"\,\""
+   let s:grpCmd = "sccs check -U | grep " . s:filename
+   let s:grpRes = system(s:grpCmd)
+   if(!v:shell_error)
+       let b:sccs_version = "Checked out(Locked)"
+       return b:sccs_version
+   endif
+
+   let s:cmdName="sccs prt -y " . s:filename . " | cut -f2 -d\" \" -s | tr -s | cut -f1"
 
    let b:version = system(s:cmdName)
-   if(strpart(b:version, 0, 1) == "%")
-       let b:sccs_version = "Checked out(Locked)"
-   elseif(strpart(b:version, 0, 1) == "")
+   if(strpart(b:version, 0, 1) == "")
        let b:sccs_version = " "
-   elseif(match(b:version, "java") != -1)
-       let s:cmdName="sccs what " . s:filename . " | cut -f2 -s | tr -s | cut -f3 -d \" \" | cut -f1 -d \"\,\""
-
-       let b:version = system(s:cmdName)
-       let b:sccs_version = "(" . strpart(b:version, 0, strlen(b:version)-1) . ")"
+   elseif(match(b:version, "nonexistent") != -1)
+       let b:sccs_version = "Not in SCCS"
    else
        let b:sccs_version = "(" . strpart(b:version, 0, strlen(b:version)-1) . ")"
    endif
