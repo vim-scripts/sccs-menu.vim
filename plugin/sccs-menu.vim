@@ -15,8 +15,8 @@
 
 " Setting SCCS menu
 if has("gui")
-    amenu  S&CCS.&Get\ latest\ version\ of\ open\ file<Tab>sccs\ get\ (F3)	:!sccs get %<CR>:e!<CR>
-    amenu  S&CCS.Get\ a\ &version\ of\ open\ file<Tab>sccs\ get\ -rxx	:let rev = input("Enter revision number:")<Bar>call GetRevision(expand("%"), rev)<BAR>:e!<CR>
+    amenu  S&CCS.&Get\ latest\ version\ of\ open\ file<Tab>sccs\ get\ (F3)	:call GetSCCSLatestVersion(expand("%"))<CR>
+    amenu  S&CCS.Get\ a\ &version\ of\ open\ file<Tab>sccs\ get\ -rxx	:let rev = input("Enter revision number:")<Bar>call GetRevision(expand("%"), rev)<CR>
     amenu  S&CCS.Get\ latest\ version\ of\ &all\ files<Tab>sccs\ get\ SCCS	:!sccs get SCCS<CR>
     amenu  S&CCS.-SEP1-			:
     amenu  S&CCS.Check\ &in\ open\ file<Tab>sccs\ delta\ (F5)	 :let comm = input("Enter comment:")<Bar>call CheckIn(expand("%"), comm)<BAR>:e!<CR>
@@ -28,13 +28,14 @@ if has("gui")
     amenu  S&CCS.-SEP3-			:
     "amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:!sccs prt %<CR>
     amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:call SCCSShowLog("sccs-log", "sccs prt")<CR>
-    amenu  S&CCS.Diff\ with\ prev\ version<Tab>sccs\ diffs\ (F7)	:call ShowSCCSDiff(expand("%"))<CR>
+    amenu  S&CCS.Diff\ with\ prev\ version<Tab>(F7)	:call ShowSCCSDiff(expand("%"))<CR>
+    amenu  S&CCS.Diff\ with\ two\ versions<Tab>	:let rev1 = input("Enter the first revision number to diff:")<Bar>:let rev2 = input("Enter the second revision number to diff:")<Bar>:call ShowSCCSVersionDiff(expand("%"), rev1, rev2)<CR>
 endif
 
 " SCCS Mappings
 if(v:version >= 600)
     "Map F3 to get latest version of open file
-    map <F3> :!sccs get %<CR>:e!<CR>
+    map <F3> :call GetSCCSLatestVersion(expand("%"))<CR>
     " Map F4 to check-out
     map <F4> :!sccs edit %<CR>:e!<CR>
     " Map F5 to check-in
@@ -50,21 +51,65 @@ endif
 
 " Gets a required revision of a file from SCCS
 function GetRevision(filename, revision)
-execute ":!sccs get -r" . a:revision a:filename
+    silent execute ":!sccs get -r" . a:revision . " " . a:filename
+    call SCCSUpdateVersion()
 endfunction
 
 " Checks in a file with a comment in SCCS
 function CheckIn(filename, comment)
-let quote = "\""
-execute ":!sccs delget -y" . quote a:comment . quote a:filename
+    let quote = "\""
+    silent execute ":!sccs delget -y" . quote a:comment . quote a:filename
 endfunction
 
 " Shows diff of opened file against the previous version. Uses vertical diff
 " facility in Vim 6.0
 function ShowSCCSDiff(filename)
-execute ":!rm tempfile.java"
-execute ":!sccs get -p " . a:filename . " > tempfile.java"
-execute ":vert diffs tempfile.java"
+    silent execute ":!rm tempfile.java"
+    silent execute ":!sccs get -p " . a:filename . " > tempfile.java"
+    silent execute ":vert diffs tempfile.java"
+endfunction
+
+" Shows diff of 2 different versions opened file. Uses vertical diff
+" facility in Vim 6.0
+function ShowSCCSVersionDiff(filename, rev1, rev2)
+    if(a:rev1 == a:rev2)
+        execute ":redraw"
+        echo "Nothing to show diff"
+        return
+    endif
+    let s:curr_ver = SCCSUpdateVersion()
+
+    " Check we need to split the screen horizontally
+    let s:rev = ""
+    if(match(s:curr_ver, a:rev1) != -1)
+        let s:rev = a:rev2
+    elseif(match(s:curr_ver, a:rev2) != -1)
+        let s:rev = a:rev1
+    endif
+    if(s:rev != "")
+        silent execute ":!sccs get -p " . a:filename . " -r " . s:rev . " > tempfile.java"
+        silent execute ":vert diffs tempfile.java"
+        return
+    endif
+    
+    
+    silent execute ":!sccs get -p " . a:filename . " -r " . a:rev1 . " > tempfile1.java"
+    silent execute ":!sccs get -p " . a:filename . " -r " . a:rev2 . " > tempfile2.java"
+    
+    if bufexists("diff")
+        execute "bd! diff"
+    endif
+
+    " create a new buffer
+    execute "new diff"
+
+    " execute the rlog command
+    execute ":0read tempfile1.java"
+    set nomodified
+    
+    silent execute ":vert diffs tempfile2.java"
+
+
 endfunction
 
 " -----------------------------------------------------------------------------
@@ -107,7 +152,7 @@ endfunction
 " show the log results of the current file with SCCS
 " -----------------------------------------------------------------------------
 function! SCCSShowLog(bufferName, cmdName)
-  call ReadCommandBuffer(a:bufferName, a:cmdName)
+    call ReadCommandBuffer(a:bufferName, a:cmdName)
 endfunction
 
 let b:sccs_version = ""
@@ -127,7 +172,23 @@ function SCCSUpdateVersion()
        let b:sccs_version = ""
        return ""
    endif
+   
+   " First check whether the file exists in SCCS
+   let s:cmdName="sccs prt " . s:filename 
 
+   let b:version = system(s:cmdName)
+   if(strpart(b:version, 0, 1) == "")
+       let b:sccs_version = " "
+       return b:sccs_version
+   elseif(match(b:version, "nonexistent") != -1)
+       let b:sccs_version = "Not in SCCS"
+       return b:sccs_version
+   elseif(match(b:version, "%") != -1)
+       let b:sccs_version = "Not in SCCS"
+       return b:sccs_version
+   endif
+
+   " Now check if it is locked by the user
    let s:grpCmd = "sccs check -U | grep " . s:filename
    let s:grpRes = system(s:grpCmd)
    if(!v:shell_error)
@@ -135,17 +196,15 @@ function SCCSUpdateVersion()
        return b:sccs_version
    endif
 
-   let s:cmdName="sccs prt -y " . s:filename . " | cut -f2 -d\" \" -s | tr -s | cut -f1"
-
+   " Now get the actual version
+   let s:cmdName="sccs what " . s:filename . " | tr -d \"\n\" | cut -f2 -d\":\" | tr -d \"\t\" | cut -f3 -d\" \" | cut -f1 -d\",\""
    let b:version = system(s:cmdName)
-   if(strpart(b:version, 0, 1) == "")
-       let b:sccs_version = " "
-   elseif(match(b:version, "nonexistent") != -1)
-       let b:sccs_version = "Not in SCCS"
-   else
-       let b:sccs_version = "(" . strpart(b:version, 0, strlen(b:version)-1) . ")"
-   endif
+   let b:sccs_version = strpart(b:version, 0, strlen(b:version)-1)
    return b:sccs_version
+endfunction
+
+function GetSCCSLatestVersion(filename)
+    silent execute ":!sccs get " . a:filename
 endfunction
 
 " Misc settings
