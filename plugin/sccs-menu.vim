@@ -3,10 +3,10 @@
 "          Name Of File: sccs-menu.vim
 "           Description: Creates a SCCS menu.
 "                Author: Pradeep Unde (pradeep_unde@yahoo.com)
-"               Version: 1.9
+"               Version: 1.10
 "                   URL: 
 "                  Date: August 8, 2001
-"     Last Modification: "Tue, 15 Jan 2002"
+"     Last Modification: "Thu, 17 Jan 2002"
 "             Copyright: None.
 "                 Usage: This menu displays useful Source Code Control System
 "                        (SCCS) functions.
@@ -28,6 +28,25 @@ if has("gui")
     amenu  S&CCS.-SEP2-			:
     amenu  S&CCS.&Add\ file\ in\ SCCS<Tab>sccs\ create	:!sccs create %:t<CR>:e!<CR>
     amenu  S&CCS.-SEP3-			:
+    "amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:!sccs prt %<CR>
+    amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:call SCCSShowLog("sccs-log", "sccs prt")<CR>
+    amenu  S&CCS.Diff\ with\ prev\ version<Tab>(F7)	:call ShowSCCSDiff(expand("%:t"))<CR>
+    amenu  S&CCS.Diff\ with\ two\ versions<Tab>	:let rev1 = input("Enter the first revision number to diff:")<Bar>:let rev2 = input("Enter the second revision number to diff:")<Bar>:call ShowSCCSVersionDiff(expand("%:t"), rev1, rev2)<CR>
+
+" Add SCCS menu to PopUp menu
+"amenu 1.110 PopUp.Select\ &All		ggVG
+    amenu  1.110 PopUp.S&CCS.&Get\ latest\ version\ of\ open\ file<Tab>sccs\ get\ (F3)	:call GetSCCSLatestVersion(expand("%:t"))<CR>
+    amenu  1.110 PopUp.S&CCS.Get\ a\ &version\ of\ open\ file<Tab>sccs\ get\ -rxx	:let rev = input("Enter revision number:")<Bar>call GetRevision(expand("%:t"), rev)<CR>
+    amenu  1.110 PopUp.S&CCS.Get\ latest\ version\ of\ &all\ files<Tab>sccs\ get\ SCCS	:!sccs get SCCS<CR>
+    amenu  1.110 PopUp.S&CCS.-SEP1-			:
+    amenu  1.110 PopUp.S&CCS.Check\ &in\ open\ file<Tab>sccs\ delta\ (F5)	 :let comm = input("Enter comment:")<Bar>call CheckIn(expand("%:t"), comm)<BAR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.Check\ &out\ open\ file<Tab>sccs\ edit\ (F4)	:!sccs edit %:t<CR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.&Unedit\ open\ file<Tab>sccs\ unedit	:!sccs unedit %:t<CR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.&Uncheckout\ open\ file<Tab>sccs\ unget	:!sccs unget %:t<CR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.&Revert\ back<Tab>sccs\ unget/get\ (F10)	:!sccs unget %:t<CR>:!sccs get %:t<CR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.-SEP2-			:
+    amenu  1.110 PopUp.S&CCS.&Add\ file\ in\ SCCS<Tab>sccs\ create	:!sccs create %:t<CR>:e!<CR>
+    amenu  1.110 PopUp.S&CCS.-SEP3-			:
     "amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:!sccs prt %<CR>
     amenu  S&CCS.Get\ &log\ of\ open\ file\ in\ SCCS<Tab>sccs\ prt\ (F6)	:call SCCSShowLog("sccs-log", "sccs prt")<CR>
     amenu  S&CCS.Diff\ with\ prev\ version<Tab>(F7)	:call ShowSCCSDiff(expand("%:t"))<CR>
@@ -229,6 +248,10 @@ endfunction
 
 " Get the current version from SCCS and place it in b:sccs_version
 function SCCSUpdateVersion()
+   " First enable all the menu items
+   :menu enable SCCS.*
+   :menu enable PopUp.SCCS.*
+
    let s:filename = expand("%:t")
    if(s:filename  == "")
        let b:sccs_version = ""
@@ -244,9 +267,19 @@ function SCCSUpdateVersion()
        return b:sccs_version
    elseif(match(s:version, "nonexistent") != -1)
        let b:sccs_version = "Not in SCCS"
+       " Enable only the add menu item
+       :menu disable SCCS.*
+       :menu enable SCCS.Add\ file\ in\ SCCS
+       :menu disable PopUp.SCCS.*
+       :menu enable PopUp.SCCS.Add\ file\ in\ SCCS
        return b:sccs_version
    elseif(match(s:version, "%") != -1)
        let b:sccs_version = "Not in SCCS"
+       " Enable only the add menu item
+       :menu disable SCCS.*
+       :menu enable SCCS.Add\ file\ in\ SCCS
+       :menu disable PopUp.SCCS.*
+       :menu enable PopUp.SCCS.Add\ file\ in\ SCCS
        return b:sccs_version
    endif
 
@@ -255,10 +288,29 @@ function SCCSUpdateVersion()
    let s:grpRes = system(s:grpCmd)
    if(!v:shell_error)
        let b:sccs_version = "Checked out(Locked)"
+       " Disable the add, check out menu item
+       :menu enable SCCS.*
+       :menu disable SCCS.Add\ file\ in\ SCCS
+       :menu disable SCCS.Check\ out\ open\ file
+       :menu enable PopUp.SCCS.*
+       :menu disable PopUp.SCCS.Add\ file\ in\ SCCS
+       :menu disable PopUp.SCCS.Check\ out\ open\ file
        return b:sccs_version
    endif
 
    " Now get the actual version
+   " Disable the add, check in, unedit, uncheckout, revert back menu item
+   :menu disable SCCS.Add\ file\ in\ SCCS
+   :menu disable SCCS.Check\ in\ open\ file
+   :menu disable SCCS.Unedit\ open\ file
+   :menu disable SCCS.Uncheckout\ open\ file
+   :menu disable SCCS.Revert\ back
+   :amenu disable PopUp.SCCS.Add\ file\ in\ SCCS
+   :amenu disable PopUp.SCCS.Check\ in\ open\ file
+   :amenu disable PopUp.SCCS.Unedit\ open\ file
+   :amenu disable PopUp.SCCS.Uncheckout\ open\ file
+   :amenu disable PopUp.SCCS.Revert\ back
+
    let s:cmdName="sccs prt -y " . s:filename . " | awk '{getline;print $3;}' "
    let s:version = system(s:cmdName)
    let b:sccs_version = strpart(s:version, 0, strlen(s:version)-1)
